@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload CSV Files</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9fafb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .upload-container {
+      background-color: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 600px;
+      height: 500px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .upload-container h1 {
+      font-size: 1.5em;
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .upload-container input[type="file"] {
+      display: none;
+    }
+
+    .upload-container label {
+      display: inline-block;
+      padding: 10px 20px;
+      background: linear-gradient(135deg, rgb(0, 113, 227), rgb(0, 196, 204));
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .upload-container label:hover {
+      background-color: #0056b3;
+    }
+
+    .file-name {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #555;
+      word-break: break-all;
+      text-align: left;
+    }
+
+    .upload-container button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: not-allowed;
+      width: 60%;
+    }
+
+    .upload-container button.active {
+      background-color: #28a745;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .upload-container button.active:hover {
+      background-color: #218838;
+    }
+
+    /* Spinner styles */
+    .spinner {
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #28a745;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      margin-top: 20px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .time-taken {
+      margin-top: 20px;
+      font-size: 1.1em;
+      color: #555;
+      display: none;
+    }
+
+    .status-message {
+      margin-top: 15px;
+      font-size: 1.2em;
+      color: #333;
+    }
+
+    .processing-message {
+      margin-top: 20px;
+      font-size: 1.1em;
+      color: #28a745;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="upload-container">
+    <h1>Upload CSV Files</h1>
+    <label for="file">Choose Files</label>
+    <input type="file" name="files" id="file" multiple onchange="showFileNames()">
+    <div class="file-name" id="file-names">No files chosen</div>
+    <button id="upload-btn" disabled>Upload</button>
+
+    <!-- Spinner for upload -->
+    <div id="spinner-container" style="display: none;">
+      <div id="spinner" class="spinner"></div>
+    </div>
+
+    <!-- Time, Processing and Status Messages -->
+    <div class="time-taken" id="time-taken">Time elapsed: 0s</div>
+    <div class="processing-message" id="processing-message">Processing file...</div>
+    <div class="status-message" id="status-message">Choose files to upload...</div>
+  </div>
+
+  <script>
+    // Function to handle file selection and display file names
+    function showFileNames() {
+      const fileInput = document.getElementById('file');
+      const fileNamesDisplay = document.getElementById('file-names');
+      const uploadBtn = document.getElementById('upload-btn');
+    
+      const files = fileInput.files;
+      if (files.length > 0) {
+        const fileNames = Array.from(files).map(file => `<div>${file.name}</div>`).join('');
+        fileNamesDisplay.innerHTML = fileNames;  // Use innerHTML to insert divs
+        uploadBtn.classList.add('active');
+        uploadBtn.disabled = false;
+      } else {
+        fileNamesDisplay.textContent = "No files chosen";
+        uploadBtn.classList.remove('active');
+        uploadBtn.disabled = true;
+      }
+    }
+  
+    // Function to upload files one by one
+    async function uploadFiles() {
+        const fileInput = document.getElementById('file');
+        const uploadBtn = document.getElementById('upload-btn');
+        const timeTaken = document.getElementById('time-taken');
+        const statusMessage = document.getElementById('status-message');
+        const processingMessage = document.getElementById('processing-message');
+        const spinnerContainer = document.getElementById('spinner-container');
+        const spinner = document.getElementById('spinner');
+
+        // If no files are selected, alert the user
+        if (!fileInput.files.length) {
+          alert('Please choose files!');
+          return;
+        }
+
+        const files = fileInput.files;
+        const totalFiles = files.length;
+        let fileIndex = 0; // Keeps track of which file we're currently uploading
+
+        // Disable the button and file input during the upload process
+        uploadBtn.disabled = true;
+        fileInput.disabled = true;
+        uploadBtn.textContent = 'Uploading...';
+
+        // Show the spinner and processing message
+        spinnerContainer.style.display = 'block';
+        processingMessage.textContent = 'Processing file...';  // Show "Processing file..."
+        processingMessage.style.display = 'block'; // Show the message
+        statusMessage.style.display = 'none';
+
+        // Time display
+        timeTaken.style.display = 'block';
+        let startTime = Date.now();
+        let interval;
+
+        interval = setInterval(() => {
+          let elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+          timeTaken.textContent = `Time elapsed: ${elapsedTime}s`;
+        }, 100);
+
+        // Function to process the next file
+        const processNextFile = async () => {
+          if (fileIndex >= totalFiles) {
+            // All files processed, hide the spinner and stop processing message
+            spinnerContainer.style.display = 'none';  // Hide the spinner
+            processingMessage.textContent = 'Processing Complete!'; // Show "Processing complete!"
+            processingMessage.style.color = '#28a745';  // Green color
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Upload';
+            fileInput.disabled = false;  // Re-enable file input
+            return;
+          }
+
+          const file = files[fileIndex];
+          const formData = new FormData();
+          formData.append('files', file);
+
+          try {
+            const response = await fetch('/upload', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (!response.ok) {
+              throw new Error('Error uploading file');
+            }
+
+            let endTime = Date.now();
+            let elapsedTime = ((endTime - startTime) / 1000).toFixed(1);
+            timeTaken.textContent = `Time elapsed: ${elapsedTime}s`;
+
+            const data = await response.json();
+            if (data.success) {
+              statusMessage.textContent = `File ${file.name} uploaded and processed successfully!`;
+            } else {
+              statusMessage.textContent = `Error uploading ${file.name}`;
+            }
+
+            // Proceed to next file
+            fileIndex++;
+            processNextFile();
+          } catch (error) {
+            console.error('Error during file upload:', error);
+            statusMessage.textContent = 'Upload failed, please try again';
+            fileIndex++;
+            processNextFile();
+          } finally {
+            clearInterval(interval);
+          }
+        };
+
+        // Start processing the first file
+        processNextFile();
+      }
+  
+    // Add event listener for the upload button to start the file upload
+    document.getElementById('upload-btn').addEventListener('click', uploadFiles);
+  
+    // Show the upload button when new files are selected
+    document.getElementById('file').addEventListener('change', () => {
+      const uploadBtn = document.getElementById('upload-btn');
+      uploadBtn.style.display = 'inline-block'; // Show the upload button again
+      uploadBtn.disabled = false; // Enable the upload button
+    });
+  </script>
+</body>
+</html>
